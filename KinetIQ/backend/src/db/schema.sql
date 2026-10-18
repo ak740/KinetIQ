@@ -1,0 +1,144 @@
+CREATE TABLE IF NOT EXISTS users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(190) NOT NULL UNIQUE,
+  password_hash VARCHAR(100) NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  grade TINYINT NULL,
+  xp INT NOT NULL DEFAULT 0,
+  streak INT NOT NULL DEFAULT 0,
+  last_active_date DATE NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS subjects (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  slug VARCHAR(60) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL,
+  icon VARCHAR(16) NOT NULL DEFAULT '📘',
+  description VARCHAR(255) NULL
+);
+
+CREATE TABLE IF NOT EXISTS topics (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  subject_id INT NOT NULL,
+  slug VARCHAR(80) NOT NULL UNIQUE,
+  name VARCHAR(120) NOT NULL,
+  description VARCHAR(255) NULL,
+  grade_min TINYINT NOT NULL DEFAULT 9,
+  sort_order INT NOT NULL DEFAULT 0,
+  FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS user_subjects (
+  user_id INT NOT NULL,
+  subject_id INT NOT NULL,
+  PRIMARY KEY (user_id, subject_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS questions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(80) NOT NULL UNIQUE,
+  topic_id INT NOT NULL,
+  difficulty TINYINT NOT NULL DEFAULT 1,
+  grade_min TINYINT NOT NULL DEFAULT 9,
+  text TEXT NOT NULL,
+  options JSON NOT NULL,
+  correct_index TINYINT NOT NULL,
+  explanation TEXT NULL,
+  FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS lessons (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(80) NOT NULL UNIQUE,
+  topic_id INT NOT NULL,
+  title VARCHAR(160) NOT NULL,
+  content MEDIUMTEXT NOT NULL,
+  minutes TINYINT NOT NULL DEFAULT 10,
+  sort_order INT NOT NULL DEFAULT 0,
+  FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS lesson_progress (
+  user_id INT NOT NULL,
+  lesson_id INT NOT NULL,
+  completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, lesson_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS tests (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  subject_id INT NOT NULL,
+  topic_id INT NULL,
+  type ENUM('diagnostic','weekly','quiz') NOT NULL,
+  status ENUM('in_progress','completed') NOT NULL DEFAULT 'in_progress',
+  score DECIMAL(5,2) NULL,
+  xp_earned INT NOT NULL DEFAULT 0,
+  started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP NULL,
+  INDEX idx_tests_user (user_id, subject_id, type, status),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS test_questions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  test_id INT NOT NULL,
+  question_id INT NOT NULL,
+  position TINYINT NOT NULL,
+  selected_index TINYINT NULL,
+  is_correct TINYINT(1) NULL,
+  FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE,
+  FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS topic_mastery (
+  user_id INT NOT NULL,
+  topic_id INT NOT NULL,
+  mastery DECIMAL(5,2) NOT NULL,
+  prev_mastery DECIMAL(5,2) NULL,
+  attempts INT NOT NULL DEFAULT 0,
+  correct INT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, topic_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS score_history (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  subject_id INT NOT NULL,
+  score DECIMAL(5,2) NOT NULL,
+  source ENUM('diagnostic','weekly','quiz') NOT NULL,
+  test_id INT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_score_user (user_id, subject_id, id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS badges (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(60) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL,
+  description VARCHAR(255) NOT NULL,
+  icon VARCHAR(16) NOT NULL,
+  rule_type VARCHAR(60) NOT NULL,
+  rule_value INT NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS user_badges (
+  user_id INT NOT NULL,
+  badge_id INT NOT NULL,
+  earned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, badge_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (badge_id) REFERENCES badges(id) ON DELETE CASCADE
+)

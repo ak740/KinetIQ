@@ -1,0 +1,52 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: kinetiq-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: ${DB_NAME:-kinetiq}
+      MYSQL_USER: ${DB_USER:-kinetiq}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-kinetiq_pass}
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3307:3306"
+    volumes:
+      - kinetiq_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  backend:
+    build: ./backend
+    container_name: kinetiq-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-kinetiq}
+      DB_USER: ${DB_USER:-kinetiq}
+      DB_PASSWORD: ${DB_PASSWORD:-kinetiq_pass}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      # Days between weekly improvement tests. Set to 0 to allow one any time (handy for demos).
+      WEEKLY_COOLDOWN_DAYS: ${WEEKLY_COOLDOWN_DAYS:-7}
+    ports:
+      - "4000:4000"
+
+  frontend:
+    build: ./frontend
+    container_name: kinetiq-web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  kinetiq_db_data:
